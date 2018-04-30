@@ -1,0 +1,82 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+
+public class BalanceAgent : Agent
+{
+
+    public GameObject ball;
+    public TextMesh tBox;
+    public float level;
+    public float maxLevel;
+    public float timeCounter;
+    public float dampFactor;
+    public float rate;
+
+
+    public override void AgentAction(float[] vectorAction, string textAction)
+    {
+        if (brain.brainParameters.vectorActionSpaceType == SpaceType.continuous)
+        {
+            Vector3 currentVel = gameObject.GetComponent<Rigidbody>().angularVelocity;
+            float xVel = gameObject.GetComponent<Rigidbody>().velocity.x;
+            dampFactor = level * 0.001F;
+
+            float Xchange = Mathf.SmoothDamp(currentVel.x, vectorAction[0], ref rate, dampFactor);
+            float Ychange = Mathf.SmoothDamp(currentVel.y, vectorAction[1], ref rate, dampFactor);
+            float Zchange = Mathf.SmoothDamp(currentVel.z, vectorAction[2], ref rate, dampFactor);
+            float Xchange_P = Mathf.SmoothDamp(xVel, vectorAction[3], ref rate, dampFactor);
+
+            gameObject.GetComponent<Rigidbody>().angularVelocity = new Vector3(Xchange, Ychange, Zchange);
+
+            if (transform.position.x < -3F || transform.position.x > 3F)
+            {
+                gameObject.GetComponent<Rigidbody>().velocity = new Vector3(0F, 0F, 0F);
+            } else
+            {
+                gameObject.GetComponent<Rigidbody>().velocity = new Vector3(Xchange_P, 0F, 0F);
+            }
+
+            timeCounter += Time.deltaTime;
+            tBox.text = "ML:" + maxLevel.ToString() + " L:" + level.ToString() + " || T+" + timeCounter.ToString("f2");
+
+            SetReward(Time.deltaTime);
+        }
+        if (timeCounter > 9)
+        {
+            level += 1;
+            timeCounter = 0;
+            AgentReset();
+        }
+        if (ball.transform.position.y < 1F)
+        {
+            level = 1;
+            timeCounter = 0;
+            Done();
+        }
+    }
+
+    public override void CollectObservations()
+    {
+        AddVectorObs(Time.deltaTime);
+        AddVectorObs(dampFactor);
+        AddVectorObs(transform.rotation);
+        AddVectorObs(transform.position.x);
+        AddVectorObs(ball.transform.position);
+        AddVectorObs(ball.GetComponent<Rigidbody>().velocity);
+    }
+
+    public override void AgentReset()
+    {
+        if (level > maxLevel)
+        {
+            maxLevel = level;
+        }
+        transform.position = new Vector3(0, 2, -3);
+        transform.rotation = new Quaternion(0F, 0F, 0F, 0F);
+        ball.transform.position = new Vector3(2, 5, -3);
+        ball.GetComponent<Rigidbody>().velocity = new Vector3(Random.Range(-6F, 2F), 0, 0);
+    }
+
+}
